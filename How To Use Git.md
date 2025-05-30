@@ -129,6 +129,3 @@ exp-pneumonia-tune-sep25
 * Automate reproducibility via `config.yaml` and logging outputs
 * Use consistent Git hygiene to avoid large file bloat and merge chaos
 
----
-
-Would you like a starter shell script to scaffold `runs/`, auto-tag branches, or template PR titles?
