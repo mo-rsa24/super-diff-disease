@@ -30,6 +30,8 @@ cd "$(dirname "$0")"
 # Go one level up so project root is current working directory
 cd ../..
 
+# These are local changes
+
 # Set PYTHONPATH to project root so that `src` is a valid top-level package
 export PYTHONPATH=$(pwd)
 
