@@ -14,10 +14,3 @@ __pycache__/
 # Jupyter & Logs
 *.ipynb
 *.log
-
-# Secrets & Examples
-.env
-config.yaml
-*.env.local
-.env.example
-config.yaml.example

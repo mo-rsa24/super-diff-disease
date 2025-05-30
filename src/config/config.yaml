@@ -1,0 +1,38 @@
+# config.yaml
+training:
+  batch_size: 8
+  num_epochs: 100
+  learning_rate: 2e-4
+  num_timesteps: 1000
+  augmentation: low
+  normalization: minmax
+  split: train
+
+paths:
+  cluster_base: /gluster/mmolefe/PhD/Super-Position Of Medical Imaging Diffusion Models For Disease Discovery
+  local_base: .
+  dataset_subdir: datasets/cleaned
+  output_dir: outputs
+  checkpoint_dir: checkpoints
+  tensorboard_dir: tensorboard
+  wandb_dir: wandb
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+
+visualization:
+  feature_extractor: chexnet-densenet121
+  n_components: 2
+  max_samples: 300
+  batch_size: 32
+  image_size: [32, 32]
+  grayscale: true
+  label_map:
+    0: Normal
+    1: TB
+  class_colors:
+    0: green
+    1: red
+
+#  Remember to create a github prompt
