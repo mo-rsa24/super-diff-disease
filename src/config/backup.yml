@@ -1,0 +1,25 @@
+dataset_root: "datasets/cleaned"    # ✅ Shared root
+task: "TB"                          # ✅ or "PNEUMONIA"
+split: "train"                     # ✅ could be "val" or "test" too
+class_filter: 1                    # 0 = NORMAL, 1 = TB or PNEUMONIA
+normalization: "minmax"
+augmentation: "low"
+batch_size: 8
+num_epochs: 100
+num_timesteps: 1000
+save_path: "checkpoints/tb"
+
+
+print_class_counts: true
+visualize_grid: true
+visualize_aug: true
+visualize_tsne: true
+visualize_tsne_thumbnails: true
+visualize_umap: true
+visualize_umap_thumbnails: true
+compare_tsne_umap_thumbnails: true
+visualize_3d_projection: true
+visualize_3d_projection_thumbnails: true
+visualize_3d_projection_plotly: true
+gradcam: true
+

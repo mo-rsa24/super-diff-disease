@@ -1,0 +1,23 @@
+# Data & Models
+/datasets/
+*.pt
+*.ckpt
+/runs/
+/outputs/
+
+/.idea/
+/.vscode/
+# Bytecode
+__pycache__/
+*.pyc
+
+# Jupyter & Logs
+*.ipynb
+*.log
+
+# Secrets & Examples
+.env
+config.yaml
+*.env.local
+.env.example
+config.yaml.example
