@@ -33,6 +33,8 @@ cd ../..
 # Set PYTHONPATH to project root so that `src` is a valid top-level package
 export PYTHONPATH=$(pwd)
 
+# These are cluster changes to run the training script with debugpy for remote debugging
+
 python3 -m debugpy --listen 5678 --wait-for-client src/train.py \
   --config src/config/config.yaml \
   --experiment_id "$EXP_ID" \
