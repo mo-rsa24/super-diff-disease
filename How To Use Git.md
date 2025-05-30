@@ -1,7 +1,3 @@
-Here is your **refined prompt**, structured for clarity, Git best practices, and multi-environment development. It cleanly explains the branching model, output organization, and collaborative flow between local and cluster work:
-
----
-
 ### ✅ **Refined Prompt: Implementing Branching Strategy and Output Isolation Across Local and Cluster Projects**
 
 We have set up **local and cluster projects** pointing to the **same GitHub repository**. To support collaborative and environment-aware development, we need to formalize:
