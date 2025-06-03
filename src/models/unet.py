@@ -54,6 +54,13 @@ class UNet(nn.Module):
             ResidualBlock(base_channels, out_channels, time_emb_dim)
         ])
 
+    def extract_bottleneck(self, x, t):
+        t_emb = self.time_mlp(t)
+        for down in self.downs:
+            x = down(x, t_emb)
+        return x
+
+
     def forward(self, x, t):
         t_emb = self.time_mlp(t)
         h = x

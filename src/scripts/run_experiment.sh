@@ -8,13 +8,12 @@ while [[ "$#" -gt 0 ]]; do
         --dataset) DATASET="$2"; shift ;;
         --use_wandb) USE_WANDB="$2"; shift ;;
         --use_tensorboard) USE_TB="$2"; shift ;;
-        --task) TASK="$2"; shift ;;
+        --sweep) SWEEP="$2"; shift ;;
     esac
     shift
 done
 
 echo "🏃Running with EXP_ID=$EXP_ID, RUN_ID=$RUN_ID, DATASET=$DATASET"
-echo "🌩️  WANDB: ${USE_WANDB:-false}, TensorBoard: ${USE_TB:-true}, Task: ${TASK:-TB}"
 
 # python train/train.py \
 #   --config config.yaml \
@@ -40,6 +39,6 @@ python3 -m debugpy --listen 5678 --wait-for-client src/train.py \
   --experiment_id "$EXP_ID" \
   --run_id "$RUN_ID" \
   --dataset "$DATASET" \
-  --use_wandb "${USE_WANDB:-false}" \
-  --use_tensorboard "${USE_TB:-true}" \
-  --task "${TASK:-TB}"
+  ${USE_WANDB:+--use_wandb} \
+  ${USE_TB:+--use_tensorboard} \
+  ${SWEEP:+--sweep}

@@ -36,14 +36,17 @@ def get_chexnet_densenet121_feature_extractor():
     model = xrv.models.DenseNet(weights="densenet121-res224-all")
     model.eval()
 
-    # Remove classifier head, keep up to final global avg pool
     def forward_features(x):
+        x = x.to(next(model.parameters()).device)  # 🔐 Match input to model device
         with torch.no_grad():
             x = model.features(x)
             x = torch.nn.functional.relu(x, inplace=True)
             x = torch.nn.functional.adaptive_avg_pool2d(x, (1, 1))
             return torch.flatten(x, 1)
+
+    model = model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     return forward_features
+
 
 def get_medclip_vit_feature_extractor():
     model = AutoModel.from_pretrained("microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224")
