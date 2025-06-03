@@ -1,0 +1,7 @@
+experiment_purpose: "<What are you testing?>"
+hypothesis: "<What do you expect to happen and why?>"
+tags: ["class", "model architecture", "augmentation", ...]
+linked_config: "<path/to/config.yaml>"
+dataset: "<TB | Pneumonia | both>"
+run_id: "<unique run name>"
+notes: "<any additional context>"

@@ -4,6 +4,7 @@
 *.ckpt
 /runs/
 /outputs/
+/checkpoints/
 
 /.idea/
 /.vscode/
@@ -14,3 +15,15 @@ __pycache__/
 # Jupyter & Logs
 *.ipynb
 *.log
+
+
+# Ignore Weights & Biases logs
+wandb/
+wandb-debug.log
+wandb-debug.log.*
+
+# Ignore TensorBoard logs
+**/events.out.tfevents.*
+
+# Optional: Ignore all TensorBoard log directories
+logs/
