@@ -10,6 +10,44 @@ class DDPM:
         self.alphas = 1.0 - self.betas
         self.alpha_bars = torch.cumprod(self.alphas, dim=0)
 
+    def denoise_step(self, model, x_t, t):
+        """
+        Perform one reverse diffusion step: p_theta(x_{t-1} | x_t)
+        Args:
+            model: the trained UNet
+            x_t: current noisy sample (B, C, H, W)
+            t: int or tensor (scalar timestep)
+        Returns:
+            x_{t-1}
+        """
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if not torch.is_tensor(t):
+            t = torch.tensor([t], device=device)
+        if t.ndim == 0:
+            t = t.expand(x_t.shape[0])  # [B]
+
+        
+        t = t.to(device)  # 🩹 Move index tensor to the same device
+
+        # 🛠 Ensure betas/alphas are on the same device too
+        betas = self.betas.to(device)[t].view(-1, 1, 1, 1)
+        alphas = self.alphas.to(device)[t].view(-1, 1, 1, 1)
+        alpha_bars = self.alpha_bars.to(device)[t].view(-1, 1, 1, 1)
+
+        # 🧠 Predict noise using model
+        pred_noise = model(x_t, t)
+
+
+        mean = (1. / torch.sqrt(alphas)) * (x_t - ((1 - alphas) / torch.sqrt(1 - alpha_bars)) * pred_noise)
+
+        if t[0].item() == 0:
+            return mean
+        else:
+            noise = torch.randn_like(x_t)
+            return mean + torch.sqrt(betas) * noise
+
+
+
     def q_sample(self, x_start, t, noise=None):
         if noise is None:
             noise = torch.randn_like(x_start)

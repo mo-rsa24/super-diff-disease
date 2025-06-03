@@ -1,0 +1,16 @@
+alerts:
+  enable: true
+  email: true
+  slack: false
+  recipient: "alerts@superdiff.org"
+
+gpu:
+  memory_threshold: 0.95  # fraction of total memory
+
+loss_monitoring:
+  unstable_loss_threshold: 2.0
+  check_frequency: 10  # batches
+
+resume:
+  auto_resume: false
+  checkpoint_path: null

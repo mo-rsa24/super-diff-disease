@@ -1,12 +1,42 @@
-# config.yaml
 training:
+  # 1) Data + augmentation
   batch_size: 8
+  val_batch_size: 8
   num_epochs: 100
-  learning_rate: 2e-4
-  num_timesteps: 1000
+  log_interval: 50
   augmentation: low
+  seed: 42
   normalization: minmax
   split: train
+
+  # 2) Model / Diffusion
+  num_timesteps: 1000                 # used to instantiate DDPM in train.py
+
+  # 3) Optimizer
+  optimizer: "adamw"                   # must be one of {"adam", "adamw"} (see opt_map in training_logic.py)
+  learning_rate: 1e-4                 # optimizer lr
+  beta1: 0.9                          # Adam β₁
+  beta2: 0.999                        # Adam β₂
+  weight_decay: 0.0                   # default weight decay (optional)
+
+  # 4) Training schedule
+  num_epochs: 50                      # used in train(...) to loop epochs
+  early_stopping_patience: 10         # if `use_validation: true` (optional)
+  use_validation: false               # if true, train() will call validate(...) each batch/epoch
+  scheduler:
+    type: "cosine"
+    t_max: 100
+    eta_min: 1e-6
+  # (train.py sets val_loader=None if not provided)
+
+  # 5) EMA (optional)
+  ema_beta: 0.995                     # used to instantiate EMA(model, beta)
+  grad_clip_norm: 1.0
+  use_amp: true
+  resume_checkpoint: ""
+  # 6) (Optional) seed for splitting / reproducibility
+  
+
 
 paths:
   cluster_base: /gluster/mmolefe/PhD/Super-Position Of Medical Imaging Diffusion Models For Disease Discovery
@@ -18,8 +48,66 @@ paths:
   wandb_dir: wandb
 
 logging:
-  use_tensorboard: true
-  use_wandb: false
+  use_wandb: false          # "true"/"false" from CLI, but must exist in config
+  use_tensorboard: true     # "true"/"false" from CLI, but must exist
+  wandb_minimal: false      # if true, skip calling `wandb.watch(model, log="all", ...)`
+
+
+observability:
+  # 1) How often to generate & save sample snapshots
+  visualize_every: 5           # every N epochs, run `log_visualizations(...)`
+
+  # 2) Whether to save intermediate feature maps
+  save_feature_maps: true      # if true, calls `visualize_feature_maps(...)`
+
+  # 3) Dimensionality reduction on features
+  save_tsne: true              # if true, calls `plot_projection(..., method="tsne")`
+  save_umap: true              # if true, calls `plot_projection(..., method="umap")`
+
+  # 4) Which visual logs to send to TensorBoard / WandB
+  log_single_sample: true       # logs the first real/generated pair per epoch
+  log_batch_grid: true          # logs a grid (4×4) of real vs generated images
+  wandb_sample_table: true     # if true, log a WandB.Table of samples
+
+  # 5) Which quantitative metrics to compute
+  compute_fid: true            # if true, calls `compute_fid_chexnet(...)`
+  compute_lpips: true          # if true, calls `compute_lpips(...)`
+  compute_ssim: true           # if true, calls `compute_ssim(...)`
+
+
+
+split_seed: 2025
+dataset_version: TB_Xray_dataset_v3
+
+
+
+
+monitoring:
+  # 4) Gradient clipping fallback (if not in config['monitoring'], default is used)
+  grad_clip: 1.0                     # `clip_grad_norm_(...)`
+
+  # 5) Maximum allowed loss (optional)
+  max_loss_threshold: 100.0           # if any batch loss > this, fail_safe_guard triggers
+  # 1) Resume behavior
+  resume:
+    auto_resume: true                # if true, `train()` searches for latest checkpoint
+    checkpoint_path: ""              # if nonempty, explicitly resume from this path
+
+  # 2) Alerts when something breaks (optional)
+  alerts:
+    enable: true                     # if true, fail_safe_guard() will send emails on failure
+
+  # 3) Loss-monitoring triggers
+  loss_monitoring:
+    check_frequency: 100                  # every N batches, call fail_safe_guard()
+
+  # (Other fields can appear here, but these are the ones used by train())
+
+
+checkpoint:
+  interval: 1           # save a checkpoint every `interval` epochs (interval=1 → every epoch)
+  keep_last_k: 3        # keep only the last K checkpoint files; older ones are deleted
+
 
 visualization:
   feature_extractor: chexnet-densenet121
@@ -35,4 +123,9 @@ visualization:
     0: green
     1: red
 
+sampling:
+  method: "ddpm"      # e.g., "ddpm", "pndm", "ddim"—whatever your code’s sampling algorithms support
+
+
 #  Remember to create a github prompt
+
