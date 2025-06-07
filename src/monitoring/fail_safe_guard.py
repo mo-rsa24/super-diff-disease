@@ -1,6 +1,5 @@
 # src/monitoring/fail_safe_guard.py
 
-import traceback
 from src.monitoring.environment_checker import get_gpu_memory_stats, detect_loss_anomaly
 from src.monitoring.alert_notifier import send_failure_email
 

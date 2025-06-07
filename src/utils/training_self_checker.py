@@ -19,6 +19,7 @@ class TrainingSelfChecker:
     """
 
     def __init__(self,
+                 experiment_id: str,
                  run_id: str,
                  save_dir: str,
                  checkpoint_keys: list = None,
@@ -33,6 +34,7 @@ class TrainingSelfChecker:
             grad_clip (float): If > 0, clip gradients to this max‐norm after computing losses.
             loss_threshold (float | None): If set, raise if loss > threshold.
         """
+        self.experiment_id = experiment_id
         self.run_id = run_id
         self.checkpoint_keys = checkpoint_keys or [
             "epoch", "global_step", "model", "optimizer", "ema", "scheduler"
@@ -113,6 +115,7 @@ class TrainingSelfChecker:
         # 2. Send email alert
         try:
             alert_on_failure(
+                experiment_id=self.experiment_id,
                 run_id=self.run_id,
                 last_epoch=epoch,
                 error_msg=error_msg
