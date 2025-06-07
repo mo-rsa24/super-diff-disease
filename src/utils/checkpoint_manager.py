@@ -1,156 +1,286 @@
+# CheckpointManager.py
+
 import os
 import json
 import glob
 import torch
 from datetime import datetime
+from typing import Optional, Tuple, Any
+
 
 class CheckpointManager:
     """
-    Manages saving/loading of checkpoints, rotation of old files,
-    and persistent metadata in checkpoints/log.json.
+    Manages saving, loading, and rotating model checkpoints.
+
+    Checkpoints are stored under:
+        <checkpoint_dir>/checkpoints/
+    Each checkpoint is named: epoch_{epoch:03d}.ckpt
+
+    A log file (log.json) in the checkpoints folder records metadata for each saved checkpoint.
+
+    Usage:
+        manager = CheckpointManager(
+            run_id="run_01",
+            checkpoint_dir="runs/exp_01/run_01",
+            keep_last_k=3,
+            logger=logger
+        )
+        manager.save(model, optimizer, scheduler, epoch=5, global_step=1000)
+        model, optimizer, scheduler, epoch, global_step = manager.load_latest(
+            model, optimizer, scheduler, map_location=device
+        )
     """
-    def __init__(self, save_dir: str, run_id: str, keep_last_k: int = 3):
+
+    def __init__(
+        self,
+        run_id: str,
+        checkpoint_dir: str,
+        keep_last_k: int = 3,
+        logger: Any = None,
+    ):
         """
         Args:
-            save_dir (str): Base directory where checkpoints/ and logs/ will live.
-            run_id (str): Unique identifier for this training run (e.g., "superdiff_tb_v4").
-            keep_last_k (int): How many most‐recent checkpoint files to keep on disk.
+            run_id (str): Unique identifier for this training run.
+            checkpoint_dir (str): Base directory under which checkpoints will be stored.
+            keep_last_k (int): Number of most recent checkpoints to keep; older ones will be deleted.
+            logger: Logging object for informational messages (expects .info(), .warning(), .error()).
         """
         self.run_id = run_id
-        self.keep_last_k = keep_last_k
-        self.base_dir = os.path.join(save_dir, run_id)
-        self.ckpt_dir = os.path.join(self.base_dir, "checkpoints")
-        self.log_path = os.path.join(self.ckpt_dir, "log.json")
+        self.base_dir = checkpoint_dir
+        self.keep_last_k = int(keep_last_k)
+        if self.keep_last_k < 1:
+            raise ValueError(f"keep_last_k must be ≥ 1, got {self.keep_last_k}")
 
+        self.logger = logger
+
+        # Ensure checkpoints directory exists
+        self.ckpt_dir = os.path.join(self.base_dir, "checkpoints")
         os.makedirs(self.ckpt_dir, exist_ok=True)
-        # Initialize (or load) the log.json
-        if not os.path.exists(self.log_path):
+
+        # Log file path
+        self.log_path = os.path.join(self.ckpt_dir, "log.json")
+        if not os.path.isfile(self.log_path):
+            # Initialize empty log
             with open(self.log_path, "w") as f:
-                json.dump({"history": []}, f, indent=2)
+                json.dump([], f)
 
     def _write_log(self, entry: dict):
-        # Append a new entry to checkpoints/log.json
-        with open(self.log_path, "r+") as f:
-            data = json.load(f)
-            data["history"].append(entry)
-            f.seek(0)
-            json.dump(data, f, indent=2)
-            f.truncate()
+        """Append an entry to the log.json file."""
+        try:
+            with open(self.log_path, "r") as f:
+                data = json.load(f)
+        except Exception:
+            data = []
 
-    def _list_ckpts(self):
-        # Return a sorted list of all .ckpt filenames (full paths)
+        data.append(entry)
+        with open(self.log_path, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def _list_checkpoints(self) -> list:
+        """
+        List all checkpoint files and return a sorted list of tuples:
+            [(epoch_int, filepath), ...], sorted ascending by epoch_int.
+        """
         pattern = os.path.join(self.ckpt_dir, "epoch_*.ckpt")
-        return sorted(glob.glob(pattern))
+        files = glob.glob(pattern)
+        ckpts = []
+        for fp in files:
+            basename = os.path.basename(fp)
+            try:
+                # Expect format: epoch_{epoch:03d}.ckpt
+                epoch_str = basename.split("_")[1].split(".")[0]
+                epoch = int(epoch_str)
+                ckpts.append((epoch, fp))
+            except Exception:
+                continue
+        ckpts.sort(key=lambda x: x[0])
+        return ckpts
+
+    def _delete_checkpoint(self, filepath: str):
+        """Delete a checkpoint file and remove from log.json."""
+        try:
+            os.remove(filepath)
+            if self.logger:
+                self.logger.info(f"🗑️ Deleted old checkpoint: {filepath}")
+        except Exception as e:
+            if self.logger:
+                self.logger.warning(f"⚠️ Could not delete checkpoint {filepath}: {e}")
+
+        # Also remove from log.json
+        try:
+            with open(self.log_path, "r") as f:
+                data = json.load(f)
+        except Exception:
+            data = []
+
+        # Filter out entries matching this filepath
+        updated = [entry for entry in data if entry.get("filepath") != filepath]
+        with open(self.log_path, "w") as f:
+            json.dump(updated, f, indent=2)
 
     def save(
         self,
         model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
-        scheduler: torch.optim.lr_scheduler._LRScheduler,
-        ema: object,
-        epoch: int,
-        global_step: int,
-        extra: dict = None
+        optimizer: Optional[torch.optim.Optimizer] = None,
+        scheduler: Optional[Any] = None,
+        epoch: int = 0,
+        global_step: Optional[int] = None,
     ):
         """
-        Save a unified checkpoint with model, optimizer, scheduler, EMA, epoch, step, plus any extra metadata.
-        Enforces rotation: keeps only the last `keep_last_k` files on disk.
+        Save model, optimizer, and scheduler state at given epoch/global_step.
+        Applies rotation to keep only the most recent `keep_last_k` checkpoints.
+
+        Args:
+            model: PyTorch model whose state_dict will be saved.
+            optimizer: Optimizer whose state_dict will be saved (optional).
+            scheduler: LR scheduler whose state_dict will be saved (optional).
+            epoch (int): Current epoch number (used for naming).
+            global_step (int): Current global training step (optional).
         """
-        # Build checkpoint dict
-        checkpoint = {
-            "epoch": epoch,
-            "global_step": global_step,
-            "model": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "ema": ema.ema_model.state_dict() if ema else None,
-            "scheduler": scheduler.state_dict() if scheduler else None,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        if extra:
-            checkpoint["extra"] = extra
-
-        # Filename: epoch_XXX.ckpt
         filename = f"epoch_{epoch:03d}.ckpt"
-        full_path = os.path.join(self.ckpt_dir, filename)
-        torch.save(checkpoint, full_path)
+        filepath = os.path.join(self.ckpt_dir, filename)
 
-        # Write metadata to log.json
-        log_entry = {
+        # Build checkpoint dict
+        checkpoint = {"model_state_dict": model.state_dict(), "epoch": epoch}
+        if optimizer is not None:
+            checkpoint["optimizer_state_dict"] = optimizer.state_dict()
+        if scheduler is not None:
+            checkpoint["scheduler_state_dict"] = scheduler.state_dict()
+        if global_step is not None:
+            checkpoint["global_step"] = global_step
+
+        # Save to disk
+        try:
+            torch.save(checkpoint, filepath)
+            if self.logger:
+                self.logger.info(f"💾 Saved checkpoint: {filepath}")
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"❌ Failed to save checkpoint at epoch {epoch}: {e}")
+            return
+
+        # Append to log.json
+        entry = {
+            "filepath": filepath,
             "epoch": epoch,
-            "global_step": global_step,
-            "path": full_path,
-            "saved_at": datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat(),
         }
-        if extra:
-            log_entry["extra"] = extra
-        self._write_log(log_entry)
+        if global_step is not None:
+            entry["global_step"] = global_step
+        self._write_log(entry)
 
-        # Rotate old checkpoints
-        all_ckpts = self._list_ckpts()
+        # Rotate old checkpoints if necessary
+        all_ckpts = self._list_checkpoints()
         if len(all_ckpts) > self.keep_last_k:
-            # delete the oldest (len - keep_last_k) files
-            to_delete = all_ckpts[: len(all_ckpts) - self.keep_last_k]
-            for old_path in to_delete:
-                try:
-                    os.remove(old_path)
-                except OSError:
-                    pass
+            # remove older epochs
+            to_delete = all_ckpts[:-self.keep_last_k]
+            for old_epoch, old_fp in to_delete:
+                self._delete_checkpoint(old_fp)
+
+    def _find_previous(self, current_epoch: int) -> Optional[str]:
+        """
+        Given a current epoch integer, return the filepath of the next-lower epoch checkpoint.
+        Returns None if no previous found.
+        """
+        ckpts = self._list_checkpoints()
+        # Extract epochs only
+        epochs = [e for e, _ in ckpts]
+        if current_epoch not in epochs:
+            return None
+        idx = epochs.index(current_epoch)
+        if idx == 0:
+            return None
+        return ckpts[idx - 1][1]
 
     def load_latest(
         self,
         model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
-        scheduler: torch.optim.lr_scheduler._LRScheduler = None,
-        ema: object = None,
-        device: str = "cpu"
-    ):
+        optimizer: Optional[torch.optim.Optimizer] = None,
+        scheduler: Optional[Any] = None,
+        map_location: Optional[Any] = None,
+    ) -> Tuple[torch.nn.Module, Optional[torch.optim.Optimizer], Optional[Any], int, Optional[int]]:
         """
-        Loads weights/states from the most recent checkpoint file found in ckpt_dir.
-        Returns: (epoch, global_step)
-        Raises:
-            FileNotFoundError if no .ckpt exists.
+        Load the most recent valid checkpoint. If loading the latest fails, fallback to previous.
+
+        Args:
+            model: Model to load state_dict into.
+            optimizer: Optimizer to load state_dict into (optional).
+            scheduler: Scheduler to load state_dict into (optional).
+            map_location: Device mapping for torch.load (e.g. {'cuda:0':'cpu'} or 'cpu').
+
+        Returns:
+            (model, optimizer, scheduler, epoch_loaded, global_step_loaded)
         """
-        all_ckpts = self._list_ckpts()
-        if not all_ckpts:
-            raise FileNotFoundError(f"No checkpoints found in {self.ckpt_dir}")
+        ckpts = self._list_checkpoints()
+        if not ckpts:
+            raise FileNotFoundError("No checkpoints found to load.")
 
-        latest_path = all_ckpts[-1]
-        checkpoint = torch.load(latest_path, map_location=device)
+        # Attempt to load from latest down to oldest
+        for epoch, fp in reversed(ckpts):
+            try:
+                return self.load_checkpoint(fp, model, optimizer, scheduler, map_location)
+            except Exception as e:
+                if self.logger:
+                    self.logger.error(f"❌ Failed to load checkpoint {fp}: {e}")
+                # Try next-older checkpoint
+                prev_fp = self._find_previous(epoch)
+                if prev_fp is None:
+                    break
+                continue
 
-        model.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        if scheduler and checkpoint.get("scheduler") is not None:
-            scheduler.load_state_dict(checkpoint["scheduler"])
-        if ema and checkpoint.get("ema") is not None:
-            ema.ema_model.load_state_dict(checkpoint["ema"])
+        raise RuntimeError("No valid checkpoint could be loaded (all failed).")
 
-        epoch = checkpoint.get("epoch", 0)
-        global_step = checkpoint.get("global_step", 0)
-        return epoch, global_step
-
-    def load_any(
+    def load_checkpoint(
         self,
-        target_epoch: int,
+        filepath: str,
         model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
-        scheduler: torch.optim.lr_scheduler._LRScheduler = None,
-        ema: object = None,
-        device: str = "cpu"
-    ):
+        optimizer: Optional[torch.optim.Optimizer] = None,
+        scheduler: Optional[Any] = None,
+        map_location: Optional[Any] = None,
+    ) -> Tuple[torch.nn.Module, Optional[torch.optim.Optimizer], Optional[Any], int, Optional[int]]:
         """
-        Load a specific epoch_{target_epoch:03d}.ckpt if it exists.
+        Load a specific checkpoint file into model, optimizer, scheduler.
+
+        Args:
+            filepath: Path to the .ckpt file.
+            model: Model to load into.
+            optimizer: Optimizer to load into (optional).
+            scheduler: Scheduler to load into (optional).
+            map_location: Device mapping for torch.load.
+
+        Returns:
+            (model, optimizer, scheduler, epoch_loaded, global_step_loaded)
+        Raises:
+            Exception if file is missing, corrupted, or missing keys.
         """
-        filename = f"epoch_{target_epoch:03d}.ckpt"
-        path = os.path.join(self.ckpt_dir, filename)
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Checkpoint not found: {path}")
-        checkpoint = torch.load(path, map_location=device)
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(f"Checkpoint file not found: {filepath}")
 
-        model.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        if scheduler and checkpoint.get("scheduler") is not None:
-            scheduler.load_state_dict(checkpoint["scheduler"])
-        if ema and checkpoint.get("ema") is not None:
-            ema.ema_model.load_state_dict(checkpoint["ema"])
+        # Load checkpoint dict
+        checkpoint = torch.load(filepath, map_location=map_location)
 
-        return checkpoint.get("epoch", 0), checkpoint.get("global_step", 0)
+        # Validate keys
+        if "model_state_dict" not in checkpoint or "epoch" not in checkpoint:
+            raise KeyError(f"Checkpoint {filepath} is missing required keys.")
+
+        # Load model weights
+        model.load_state_dict(checkpoint["model_state_dict"])
+
+        # Load optimizer & scheduler if provided
+        global_step = checkpoint.get("global_step", None)
+        epoch_loaded = checkpoint["epoch"]
+
+        if optimizer is not None:
+            if "optimizer_state_dict" not in checkpoint:
+                raise KeyError(f"Checkpoint {filepath} missing optimizer state.")
+            optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+        if scheduler is not None:
+            if "scheduler_state_dict" not in checkpoint:
+                raise KeyError(f"Checkpoint {filepath} missing scheduler state.")
+            scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+
+        if self.logger:
+            self.logger.info(f"✅ Loaded checkpoint '{filepath}' at epoch {epoch_loaded}")
+
+        return model, optimizer, scheduler, epoch_loaded, global_step

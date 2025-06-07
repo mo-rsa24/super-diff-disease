@@ -1,3 +1,13 @@
+dataset: CHEST_XRAY
+# This tells train.py to skip the HF path
+architecture: factory
+model:
+  # If your factory looks up “CHEST_XRAY” and reads a YAML, you can override:
+  base_dim: 64                # example: 64 base channels instead of 128
+  time_emb_dim: 512           # HF time embedding size is still okay
+  # input resolution: chest X-ray often 256×256
+  image_size: 256
+  
 training:
   # 1) Data + augmentation
   batch_size: 8

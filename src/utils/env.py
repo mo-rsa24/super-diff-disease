@@ -7,7 +7,7 @@ import numpy as np
 
 def is_cluster():
     hostname = socket.gethostname()
-    return "login" in hostname or "node" in hostname or os.environ.get("IS_CLUSTER") == "1"
+    return "mscluster" in hostname or "wits" in hostname or os.environ.get("IS_CLUSTER") == "1"
 
 def set_global_seeds(seed):
     random.seed(seed)
