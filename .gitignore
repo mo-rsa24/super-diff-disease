@@ -4,6 +4,7 @@
 *.ckpt
 /runs/
 /outputs/
+/checkpoints/
 
 /.idea/
 /.vscode/
@@ -15,9 +16,14 @@ __pycache__/
 *.ipynb
 *.log
 
-# Secrets & Examples
-.env
-config.yaml
-*.env.local
-.env.example
-config.yaml.example
+
+# Ignore Weights & Biases logs
+wandb/
+wandb-debug.log
+wandb-debug.log.*
+
+# Ignore TensorBoard logs
+**/events.out.tfevents.*
+
+# Optional: Ignore all TensorBoard log directories
+logs/

@@ -1,0 +1,103 @@
+# ------------------------------------------------------------
+# Config for HuggingFace‐style MNIST diffusion (architecture=huggingface)
+# ------------------------------------------------------------
+
+# ↓ Select “MNIST” so that train.py knows to load the HF wrapper
+dataset: MNIST
+
+# ↓ Since this is the HF path, set architecture to “huggingface”
+architecture: huggingface
+
+# -------------------------------
+# Model‐specific hyperparameters
+# -------------------------------
+model:
+  # base UNet channels for HF MNIST; channel multipliers are hard‐coded inside diffusers_mnist.py
+  base_dim: 128
+  time_emb_dim: 512
+  # HF code expects 32×32 images
+  image_size: 32
+  # (Optionally, you could add other HF‐specific flags here)
+
+# -------------------------------
+# Training hyperparameters
+# -------------------------------
+training:
+  # number of diffusion timesteps (T)
+  num_timesteps: 1000
+
+  # The “HF_DiffusionWrapper” will sample a random t ∈ [0, T−1] inside training_step.
+  batch_size: 128
+  learning_rate: 0.0002
+  optimizer: adam
+  beta1: 0.9
+  beta2: 0.999
+  weight_decay: 0.0
+
+  # Use AMP (automatic mixed precision) on GPU
+  use_amp: true
+
+  # EMA decay for HF MNIST
+  ema_beta: 0.9999
+
+  # Total epochs to run
+  num_epochs: 50
+
+  # How many batches between logging to TensorBoard / W&B
+  log_interval: 100
+
+  # Scheduler (optional; not strictly needed for HF MNIST demo)
+  scheduler:
+    type: cosine
+    t_max: 50
+    eta_min: 1e-6
+
+  # Checkpoint‐saving strategy
+  checkpoint:
+    interval: 5        # save every 5 epochs
+    keep_last_k: 3     # keep only last 3 checkpoints
+
+  # Early‐stopping on validation MSE (optional)
+  use_validation: true
+  early_stopping_patience: 10
+
+# -------------------------------
+# Observability / Logging
+# -------------------------------
+logging:
+  use_wandb: true
+  use_tensorboard: true
+  wandb_minimal: false
+
+observability:
+  visualize_every: 5          # sample & log images every 5 epochs
+  save_feature_maps: false    # HF MNIST demo does not save feature maps by default
+  save_tsne: false
+  save_umap: false
+  log_grad_norm: true
+
+monitoring:
+  # Fail‐safe on loss spikes or NaN:
+  loss_monitoring:
+    check_frequency: 500      # check every 500 steps
+  alerts:
+    enable: true
+  # Optionally set a max allowed loss; abort if exceeded:
+  max_loss_threshold: 100.0
+
+# -------------------------------
+# Paths (the code’s env.resolve_paths uses these)
+# -------------------------------
+paths:
+  cluster_base: /gluster/mmolefe/PhD/Super-Position Of Medical Imaging Diffusion Models For Disease Discovery
+  local_base: .
+  dataset_subdir: datasets/cleaned
+  output_dir: outputs
+  checkpoint_dir: checkpoints
+  tensorboard_dir: tensorboard
+  wandb_dir: wandb
+
+# -------------------------------
+# Random seed
+# -------------------------------
+seed: 42

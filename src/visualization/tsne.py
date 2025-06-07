@@ -237,3 +237,43 @@ def run_projection_3d(
     ax.legend()
     plt.tight_layout()
     plt.show()
+
+
+"""
+tsne_umap.py
+
+📌 Latent Space Visualization (TSNE, UMAP, PCA) for Diffusion Models.
+Used to project intermediate U-Net features and assess cluster behavior.
+
+Usage:
+    from src.visuals.tsne_umap import plot_projection
+    plot_projection(features, labels, "Epoch 5", "umap_epoch5.png", method="umap")
+"""
+
+import os
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+from umap import UMAP
+
+def plot_projection(features, labels, title, save_path, method="tsne", n_components=2):
+    if method == "tsne":
+        projector = TSNE(n_components=n_components)
+    elif method == "umap":
+        projector = UMAP(n_components=n_components)
+    elif method == "pca":
+        projector = PCA(n_components=n_components)
+    else:
+        raise ValueError("Unsupported method: " + method)
+
+    proj = projector.fit_transform(features)
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(proj[:, 0], proj[:, 1], c=labels, cmap='tab10', alpha=0.7)
+    plt.title(f"{method.upper()} projection - {title}")
+    plt.colorbar(scatter)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
