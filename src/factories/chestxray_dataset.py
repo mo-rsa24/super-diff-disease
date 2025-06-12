@@ -2,8 +2,11 @@
 
 from torch.utils.data import Dataset
 import os
-from data.raw_chestxray import RawChestXray  # assume this is your low‐level loader
-from transforms import safe_augmentation
+
+from src.data.dataset import ChestXrayDataset
+from src.factories.registry import register_dataset
+from src.transforms import safe_augmentation
+
 
 @register_dataset("CHEST_XRAY")
 class ChestXray_Wrapper(Dataset):
@@ -21,11 +24,11 @@ class ChestXray_Wrapper(Dataset):
         base_dir = paths["cluster_base"] if paths.get("use_cluster", False) else paths["local_base"]
         dataset_sub = paths.get("dataset_subdir", "datasets/cleaned")
         dataset_dir = os.path.join(base_dir, dataset_sub)
-        full_dir = os.path.join(dataset_dir, task_name)
+
 
         # Check directory exists
-        if not os.path.isdir(full_dir):
-            raise FileNotFoundError(f"Expected chest‐xray folder not found: {full_dir}")
+        if not os.path.isdir(dataset_dir):
+            raise FileNotFoundError(f"Expected chest‐xray folder not found: {dataset_dir}")
 
         # Validate split
         split = config.get("training", {}).get("split", "train").strip().lower()
@@ -40,8 +43,8 @@ class ChestXray_Wrapper(Dataset):
         class_filt = config.get("training", {}).get("class_filter", None)
 
         # Instantiate the raw dataset
-        self.inner = RawChestXray(
-            root_dir=full_dir,
+        self.inner = ChestXrayDataset(
+            root_dir=dataset_dir,
             split=split,
             aug=aug_transform,
             class_filter=class_filt,

@@ -14,6 +14,8 @@ def set_global_seeds(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def resolve_paths(config):
     base_dir = config["paths"]["cluster_base"] if is_cluster() else config["paths"]["local_base"]

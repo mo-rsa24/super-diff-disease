@@ -18,8 +18,7 @@ def fail_safe_guard(epoch, loss, run_id, config, checkpoint_path, enable_alerts=
                 run_id=run_id,
                 reason=reason,
                 epoch=epoch,
-                checkpoint_path=checkpoint_path,
-                config_path=config.get("config_path", "unknown")
+                checkpoint_path=checkpoint_path
             )
 
         return True, log_message

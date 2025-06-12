@@ -29,8 +29,6 @@ training:
   beta2: 0.999                        # Adam β₂
   weight_decay: 0.0                   # default weight decay (optional)
 
-  # 4) Training schedule
-  num_epochs: 50                      # used in train(...) to loop epochs
   early_stopping_patience: 10         # if `use_validation: true` (optional)
   use_validation: false               # if true, train() will call validate(...) each batch/epoch
   scheduler:
@@ -66,7 +64,7 @@ logging:
 observability:
   # 1) How often to generate & save sample snapshots
   visualize_every: 5           # every N epochs, run `log_visualizations(...)`
-
+  log_every: 100
   # 2) Whether to save intermediate feature maps
   save_feature_maps: true      # if true, calls `visualize_feature_maps(...)`
 
@@ -78,6 +76,7 @@ observability:
   log_single_sample: true       # logs the first real/generated pair per epoch
   log_batch_grid: true          # logs a grid (4×4) of real vs generated images
   wandb_sample_table: true     # if true, log a WandB.Table of samples
+  save_diffusion_process: true
 
   # 5) Which quantitative metrics to compute
   compute_fid: true            # if true, calls `compute_fid_chexnet(...)`

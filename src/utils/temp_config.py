@@ -14,7 +14,7 @@ def write_temp_config(base_path: str, overrides: dict) -> str:
         cfg[k] = v
 
     # write to a new temp file
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".yaml", prefix="cfg_override_")
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".yml", prefix="cfg_override_")
     os.close(tmp_fd)  # we only need the path
     with open(tmp_path, "w") as f:
         yaml.dump(cfg, f)

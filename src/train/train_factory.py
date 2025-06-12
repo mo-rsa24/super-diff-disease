@@ -2,22 +2,23 @@
 
 import argparse, os
 from src.factories import get_dataset, get_model_diffusion
+from src.train.runner import run_training
 from src.utils.temp_config import write_temp_config
-import torch 
+from torch.utils.data import DataLoader
 
 def build_factory_dataloaders(config):
     # … same as before …
-    train_ds = get_dataset(config["dataset"], config, split_override="train")
-    val_ds   = get_dataset(config["dataset"], config, split_override="val")
+    train_ds = get_dataset("CHEST_XRAY", config, split_override="train")
+    val_ds   = get_dataset("CHEST_XRAY", config, split_override="val")
 
-    train_loader = torch.utils.data.DataLoader(
+    train_loader = DataLoader(
         train_ds,
         batch_size=int(config["training"]["batch_size"]),
         shuffle=True,
         num_workers=int(config["training"].get("num_workers", 4)),
         pin_memory=True
     )
-    val_loader = torch.utils.data.DataLoader(
+    val_loader = DataLoader(
         val_ds,
         batch_size=int(config["training"].get("val_batch_size", config["training"]["batch_size"])),
         shuffle=False,
@@ -31,7 +32,7 @@ def build_factory_model_and_diffusion(config, device, logger):
     """
     Returns (model, diffusion) for any factory‐registered dataset + architecture.
     """
-    model, diffusion = get_model_diffusion(config["dataset"], config)
+    model, diffusion = get_model_diffusion("CHEST_XRAY", config)
 
     # device‐move diffusion if needed (e.g., if DDPM holds buffers)
     if hasattr(diffusion, "to"):
@@ -44,7 +45,6 @@ def build_factory_model_and_diffusion(config, device, logger):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="src/config/config_factory_chestxray.yaml")
     parser.add_argument("--experiment_id", type=str, required=True)
     parser.add_argument("--run_id", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True,
@@ -55,11 +55,14 @@ if __name__ == "__main__":
 
     # 1) Validate dataset argument
     ds_upper = args.dataset.strip().upper()
+    ds_lower = args.dataset.strip().lower()
     if ds_upper not in ["TB", "PNEUMONIA"]:
         raise ValueError(f"Unsupported dataset='{args.dataset}'. Allowed: 'TB', 'PNEUMONIA'.")
 
     # 2) Prepare overrides without touching the original YAML
     overrides = {
+        "experiment_id": f"experiment_{args.experiment_id}",
+        "run_id": f"run_{args.run_id}",
         "dataset": ds_upper,
         "architecture": "factory",
         "logging": {
@@ -69,8 +72,8 @@ if __name__ == "__main__":
         }
     }
 
-    # 3) Write a temporary config.yaml
-    tmp_config_path = write_temp_config(args.config, overrides)
+    config = f"src/config/config_factory_{ds_lower}.yml"
+    tmp_config_path = write_temp_config(config, overrides)
 
     try:
         # 4) Call generic runner with the temp YAML

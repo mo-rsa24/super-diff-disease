@@ -1,17 +1,17 @@
 # validate_logic.py
 
 import torch
-import torch.nn.functional as F
 import numpy as np
 import random
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
-from src.utils.training_logger_utils import log_validation_metrics
 from src.metrics.fid_lpips import compute_fid_chexnet, compute_ssim  # see note below
+
 
 def validate(
     model: torch.nn.Module,
-    val_loader: torch.utils.data.DataLoader,
+    val_loader:DataLoader,
     diffusion,
     device: torch.device,
     config: dict,
@@ -56,12 +56,6 @@ def validate(
                 mse_loss = diffusion.training_step(model, real_imgs)
             total_mse += mse_loss.item() * bsz
 
-            # 3) Generate a deterministic “fake” image for each real img:
-            #    We reseed before every .sample(...) call so that the sampling is
-            #    exactly reproducible across runs.
-            #    If diffusion.sample(...) also uses randomness internally, this ensures
-            #    it’s the same “noise” every time.
-            #    Note: sampling the entire batch at once is fine.
             torch.manual_seed(val_seed)
             if device.type == "cuda":
                 torch.cuda.manual_seed_all(val_seed)
@@ -77,16 +71,9 @@ def validate(
 
     # ─── B) COMPUTE AVERAGE MSE OVER VALIDATION SET ───────────────────────────────
     avg_mse = total_mse / float(num_images)
-
-    # Concatenate all real and generated images into two big tensors of shape (N,C,H,W)
     all_real = torch.cat(all_real, dim=0)
     all_gen = torch.cat(all_gen, dim=0)
 
-    # ─── C) COMPUTE FID & SSIM ─────────────────────────────────────────────────
-    # Assumes compute_fid(real_images, gen_images) returns a float
-    # and compute_ssim(real_images, gen_images) returns a float.
-    # These helper functions might live in src/utils/metrics.py
-    # (see notes below on how to implement them if you don't have them).
     fid_val = compute_fid_chexnet(all_real, all_gen)
     ssim_val = compute_ssim(all_real, all_gen)
 
@@ -96,6 +83,7 @@ def validate(
         "val_fid": fid_val,
         "val_ssim": ssim_val
     }
+    from src.train.utils.handlers import log_validation_metrics
     log_validation_metrics(
         logger,
         metrics,

@@ -1,7 +1,5 @@
 # src/factories/model_diffusion.py
-
-import torch
-from src.factories import register_model_diffusion
+from src.factories.registry import register_model_diffusion
 from src.models.ddpm import DDPM
 from src.models.diffusion_mnist import UNet  # adjust to your import path
 
@@ -34,17 +32,7 @@ def chestxray_model_diffusion(config: dict) -> tuple:
     if num_timesteps <= 0:
         raise ValueError(f"Invalid num_timesteps={num_timesteps}; must be > 0.")
 
-    img_size = int(config.get("model", {}).get("image_size", 128))
-    base_dim = int(config.get("model", {}).get("base_dim", 64))
-    beta_sched = config.get("training", {}).get("beta_schedule", "linear")
-    if beta_sched not in ("linear", "cosine"):
-        raise ValueError(f"Unsupported beta_schedule='{beta_sched}'. Must be 'linear' or 'cosine'.")
+    model = UNet()
+    diffusion = DDPM(num_timesteps=num_timesteps)
 
-    unet = UNet(in_channels=1, base_dim=base_dim)
-    diffusion = DDPM(
-        num_timesteps=num_timesteps,
-        image_size=img_size,
-        beta_schedule=beta_sched,
-    )
-
-    return unet, diffusion
+    return model, diffusion

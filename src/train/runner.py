@@ -4,8 +4,8 @@ import os, json, yaml
 from datetime import datetime
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import wandb
+from torch.utils.tensorboard import SummaryWriter
 
 from src.train.training_logic import train
 from src.utils.env import resolve_paths, set_global_seeds, is_cluster
@@ -181,7 +181,7 @@ def run_training(build_dataloaders, build_model_and_diffusion, config_path: str)
             alert_on_failure(
                 experiment_id=config["experiment_id"],
                 run_id=config["run_id"],
-                last_epoch=None,  # you could extract this from ckpt_manager if needed
+                last_epoch=0,  # you could extract this from ckpt_manager if needed
                 error_msg=str(e)
             )
         except Exception as mail_e:
